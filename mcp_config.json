@@ -1,0 +1,15 @@
+{
+  "name": "docmind",
+  "version": "1.0.0",
+  "description": "MCP server that exposes DocMind's RAG-powered document Q&A as tools. Ingest PDFs or text files and ask questions grounded in their content.",
+  "tools": [
+    {
+      "name": "ingest_document",
+      "description": "Use this tool to add a PDF or text document to the knowledge base. Call this before querying."
+    },
+    {
+      "name": "query_documents",
+      "description": "Use this tool to answer a question using documents in the knowledge base. Returns the answer and source chunks."
+    }
+  ]
+}
