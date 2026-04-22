@@ -41,14 +41,18 @@ async def list_tools() -> list[Tool]:
         ),
         Tool(
             name="query_documents",
-            description="Use this tool to answer a question using documents in the knowledge base. Returns the answer and source chunks.",
+            description="Use this tool to answer a question using documents in the knowledge base. Pass session_id to maintain conversation continuity across multiple calls in the same agent workflow.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "question": {
                         "type": "string",
                         "description": "The question to answer based on ingested documents.",
-                    }
+                    },
+                    "session_id": {
+                        "type": "string",
+                        "description": "Optional session ID. Pass the same session_id across multiple calls to maintain conversation memory. If not provided a new session is created.",
+                    },
                 },
                 "required": ["question"],
             },
@@ -70,11 +74,14 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
 
     elif name == "query_documents":
         question = arguments.get("question", "")
+        session_id = arguments.get("session_id", None)
         try:
-            answer = ask_question(question)
+            answer = ask_question(question=question, session_id=session_id)
             result = {
                 "answer": answer["answer"],
                 "source_chunks": answer["source_chunks"],
+                "relevant_history": answer["relevant_history"],
+                "session_id": answer["session_id"],
             }
         except Exception as e:
             result = {"status": "error", "message": str(e)}

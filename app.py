@@ -16,7 +16,10 @@ def ingest_document(file):
         return "⚠️ Please upload a file first."
 
     try:
-        file_path = file.name
+        # Gradio saves the uploaded file to a temp path on the server.
+        # file is the actual temp file path string on HF Spaces — use it directly.
+        file_path = file if isinstance(file, str) else file.name
+
         response = httpx.post(
             f"{BASE_URL}/ingest",
             json={"file_path": file_path},
@@ -29,48 +32,24 @@ def ingest_document(file):
             detail = response.json().get("detail", "Unknown error")
             return f"❌ Error: {detail}"
     except httpx.ConnectError:
-        return "❌ Could not connect to the FastAPI server. Check DOCMIND_API_URL and backend startup."
+        return "❌ Could not connect to the FastAPI server."
     except Exception as e:
         return f"❌ Error: {str(e)}"
 
 
-def query_documents(question):
-    """Send a question to the RAG agent and display the answer with sources."""
-    if not question or not question.strip():
-        return "⚠️ Please enter a question.", ""
-
-    try:
-        response = httpx.post(
-            f"{BASE_URL}/query",
-            json={"question": question},
-            timeout=120.0,
-        )
-        if response.status_code == 200:
-            data = response.json()
-            answer = data["answer"]
-
-            # Format source chunks
-            sources = data.get("source_chunks", [])
-            if sources:
-                source_text = ""
-                for i, chunk in enumerate(sources, 1):
-                    content = chunk.get("content", "N/A")
-                    metadata = chunk.get("metadata", {})
-                    source_text += f"**Chunk {i}**\n"
-                    source_text += f"```\n{content}\n```\n"
-                    if metadata:
-                        source_text += f"_Metadata: {json.dumps(metadata)}_\n\n"
-            else:
-                source_text = "_No source chunks returned._"
-
-            return answer, source_text
-        else:
-            detail = response.json().get("detail", "Unknown error")
-            return f"❌ Error: {detail}", ""
-    except httpx.ConnectError:
-        return "❌ Could not connect to the FastAPI server. Check DOCMIND_API_URL and backend startup.", ""
-    except Exception as e:
-        return f"❌ Error: {str(e)}", ""
+def query(question, session_id):
+    """Send question and session_id to FastAPI, return answer, sources, and session_id."""
+    response = httpx.post(
+        f"{BASE_URL}/query",
+        json={"question": question, "session_id": session_id},
+        timeout=30,
+    )
+    data = response.json()
+    sources = "\n\n".join(
+        [chunk.get("content", "") for chunk in data.get("source_chunks", [])]
+    )
+    new_session_id = data.get("session_id", "")
+    return data.get("answer", ""), sources, new_session_id, new_session_id
 
 
 # --- Gradio Interface ---
@@ -79,6 +58,7 @@ with gr.Blocks(
     title="DocMind",
     theme=gr.themes.Soft(),
 ) as demo:
+    current_session_id = gr.State(value=None)
     gr.Markdown(
         """
         # 🧠 DocMind
@@ -113,14 +93,20 @@ with gr.Blocks(
         )
         query_btn = gr.Button("🔍 Get Answer", variant="primary")
         answer_output = gr.Textbox(label="Answer", interactive=False, lines=5)
+        session_id_display = gr.Textbox(
+            label="Session ID (auto-managed)",
+            interactive=False,
+            visible=True,
+            scale=1,
+        )
 
         with gr.Accordion("📄 Source Chunks", open=False):
             sources_output = gr.Markdown(label="Sources")
 
         query_btn.click(
-            fn=query_documents,
-            inputs=[question_input],
-            outputs=[answer_output, sources_output],
+            fn=query,
+            inputs=[question_input, current_session_id],
+            outputs=[answer_output, sources_output, session_id_display, current_session_id],
         )
 
 if __name__ == "__main__":

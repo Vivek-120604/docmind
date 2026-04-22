@@ -40,12 +40,15 @@ class IngestResponse(BaseModel):
 class QueryRequest(BaseModel):
     """Request body for the /query endpoint."""
     question: str
+    session_id: str = None  # optional — generated automatically if not provided
 
 
 class QueryResponse(BaseModel):
     """Response body for the /query endpoint."""
     answer: str
     source_chunks: list
+    relevant_history: list
+    session_id: str  # always returned so client can pass it back next time
 
 
 # --- Endpoints ---
@@ -66,12 +69,17 @@ def ingest_document(request: IngestRequest):
 
 @app.post("/query", response_model=QueryResponse)
 def query_documents(request: QueryRequest):
-    """Ask a question and get an answer grounded in the ingested documents."""
+    """Ask a question and get an answer grounded in ingested documents and past conversation."""
     try:
-        result = ask_question(request.question)
+        result = ask_question(
+            question=request.question,
+            session_id=request.session_id,
+        )
         return QueryResponse(
             answer=result["answer"],
             source_chunks=result["source_chunks"],
+            relevant_history=result["relevant_history"],
+            session_id=result["session_id"],
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Query failed: {str(e)}")
