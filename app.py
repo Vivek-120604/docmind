@@ -29,7 +29,7 @@ def ingest_document(file):
             detail = response.json().get("detail", "Unknown error")
             return f"❌ Error: {detail}"
     except httpx.ConnectError:
-        return "❌ Could not connect to the FastAPI server. Make sure it is running on port 7860."
+        return "❌ Could not connect to the FastAPI server. Check DOCMIND_API_URL and backend startup."
     except Exception as e:
         return f"❌ Error: {str(e)}"
 
@@ -68,7 +68,7 @@ def query_documents(question):
             detail = response.json().get("detail", "Unknown error")
             return f"❌ Error: {detail}", ""
     except httpx.ConnectError:
-        return "❌ Could not connect to the FastAPI server. Make sure it is running on port 7860.", ""
+        return "❌ Could not connect to the FastAPI server. Check DOCMIND_API_URL and backend startup.", ""
     except Exception as e:
         return f"❌ Error: {str(e)}", ""
 

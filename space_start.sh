@@ -7,6 +7,10 @@ API_PORT="${API_PORT:-8000}"
 # Gradio calls the FastAPI backend through this URL.
 export DOCMIND_API_URL="${DOCMIND_API_URL:-http://${API_HOST}:${API_PORT}}"
 
+# Keep model caches in a writable, ephemeral location in containerized runtimes.
+export HF_HOME="${HF_HOME:-/tmp/huggingface}"
+export TRANSFORMERS_CACHE="${TRANSFORMERS_CACHE:-/tmp/huggingface/transformers}"
+
 # Hugging Face Spaces provides PORT for the public app.
 export GRADIO_SERVER_NAME="${GRADIO_SERVER_NAME:-0.0.0.0}"
 export GRADIO_SERVER_PORT="${GRADIO_SERVER_PORT:-${PORT:-7860}}"
@@ -21,4 +25,4 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 echo "[DocMind] Starting Gradio at ${GRADIO_SERVER_NAME}:${GRADIO_SERVER_PORT}"
-uv run python app.py
+exec uv run python app.py
