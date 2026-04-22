@@ -2,12 +2,15 @@
 """FastAPI application — exposes /ingest and /query endpoints for DocMind."""
 
 import os
+from uuid import UUID
 
 import gradio as gr
 from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
 from fastapi import Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
+import mcp.types as mcp_types
+from pydantic import BaseModel, ValidationError
 from mcp.server.sse import SseServerTransport
 
 from app.ingest import ingest_file
@@ -117,7 +120,28 @@ async def mcp_sse(request: Request):
 @app.post("/mcp/messages")
 async def mcp_messages(request: Request):
     """Receive MCP client POST messages bound to an SSE session."""
-    await sse_transport.handle_post_message(request.scope, request.receive, request._send)
+    session_id_param = request.query_params.get("session_id")
+    if session_id_param is None:
+        return Response("session_id is required", status_code=400)
+
+    try:
+        session_id = UUID(hex=session_id_param)
+    except ValueError:
+        return Response("Invalid session ID", status_code=400)
+
+    writer = sse_transport._read_stream_writers.get(session_id)
+    if not writer:
+        return Response("Could not find session", status_code=404)
+
+    payload = await request.json()
+    try:
+        message = mcp_types.JSONRPCMessage.model_validate(payload)
+    except ValidationError as err:
+        await writer.send(err)
+        return Response("Could not parse message", status_code=400)
+
+    await writer.send(message)
+    return Response("Accepted", status_code=202)
 
 
 @app.get("/mcp/health")
@@ -129,7 +153,6 @@ def mcp_health():
         "sse_path": "/mcp/sse",
         "message_path": "/mcp/messages",
     }
-
 
 # Mount Gradio UI on the same public ASGI app.
 _ui_base_url = os.getenv("DOCMIND_API_URL", "http://127.0.0.1:7860")
