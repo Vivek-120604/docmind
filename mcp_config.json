@@ -2,6 +2,12 @@
   "name": "docmind",
   "version": "1.0.0",
   "description": "MCP server that exposes DocMind's RAG-powered document Q&A as tools. Ingest PDFs or text files and ask questions grounded in their content.",
+  "transport": {
+    "type": "sse",
+    "sse_path": "/mcp/sse",
+    "message_path": "/mcp/messages",
+    "health_path": "/mcp/health"
+  },
   "tools": [
     {
       "name": "ingest_document",

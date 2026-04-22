@@ -1,12 +1,19 @@
 # File: app/api.py
 """FastAPI application — exposes /ingest and /query endpoints for DocMind."""
 
+import os
+
+import gradio as gr
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from fastapi import Request
+from mcp.server.sse import SseServerTransport
 
 from app.ingest import ingest_file
 from app.chain import ask_question
+from app.ui import build_demo
+from mcp_server.server import server as mcp_server
 
 app = FastAPI(
     title="DocMind",
@@ -89,3 +96,41 @@ def query_documents(request: QueryRequest):
 def health_check():
     """Simple health check endpoint."""
     return {"status": "healthy"}
+
+
+# --- MCP over network (SSE transport) ---
+
+sse_transport = SseServerTransport("/mcp/messages")
+
+
+@app.get("/mcp/sse")
+async def mcp_sse(request: Request):
+    """Open an MCP SSE stream for remote clients."""
+    async with sse_transport.connect_sse(request.scope, request.receive, request._send) as streams:
+        await mcp_server.run(
+            streams[0],
+            streams[1],
+            mcp_server.create_initialization_options(),
+        )
+
+
+@app.post("/mcp/messages")
+async def mcp_messages(request: Request):
+    """Receive MCP client POST messages bound to an SSE session."""
+    await sse_transport.handle_post_message(request.scope, request.receive, request._send)
+
+
+@app.get("/mcp/health")
+def mcp_health():
+    """Health and discovery info for network MCP clients."""
+    return {
+        "status": "healthy",
+        "transport": "sse",
+        "sse_path": "/mcp/sse",
+        "message_path": "/mcp/messages",
+    }
+
+
+# Mount Gradio UI on the same public ASGI app.
+_ui_base_url = os.getenv("DOCMIND_API_URL", "http://127.0.0.1:7860")
+app = gr.mount_gradio_app(app, build_demo(base_url=_ui_base_url), path="/")
