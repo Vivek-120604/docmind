@@ -1,6 +1,6 @@
 # File: app/chain.py
 """Chain module — builds a ConversationalRetrievalChain using Groq LLM,
-ChromaDB document retriever, and persistent chat history from ChromaDB Cloud."""
+ChromaDB document retriever, and persistent chat history."""
 
 import os
 import uuid
@@ -67,7 +67,7 @@ def ask_question(question: str, session_id: str = None) -> dict:
     if not session_id:
         session_id = str(uuid.uuid4())
 
-    # Retrieve relevant past exchanges for this session from ChromaDB Cloud
+    # Retrieve relevant past exchanges for this session from ChromaDB
     past_exchanges = retrieve_chat_history(
         query=question,
         session_id=session_id,

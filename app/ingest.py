@@ -1,8 +1,10 @@
 # File: app/ingest.py
-"""Document ingestion — loads PDFs or text files, splits into chunks,
-embeds with HuggingFace, and persists to ChromaDB Cloud."""
+"""Document ingestion — loads files, chunks text, embeds content,
+and persists vectors to ChromaDB (Cloud with local fallback)."""
 
 import os
+from functools import lru_cache
+from pathlib import Path
 
 import chromadb
 from dotenv import load_dotenv
@@ -22,13 +24,46 @@ embedding_model = HuggingFaceEmbeddings(
 )
 
 
+def _truthy(value: str | None) -> bool:
+    """Parse common truthy environment variable values."""
+    return str(value).strip().lower() in {"1", "true", "yes", "on"}
+
+
+@lru_cache(maxsize=1)
 def get_chroma_client():
-    """Create a ChromaDB Cloud HttpClient using environment variables."""
-    return chromadb.CloudClient(
-        tenant=os.getenv("CHROMA_TENANT", ""),
-        database=os.getenv("CHROMA_DATABASE", ""),
-        api_key=os.getenv("CHROMA_API_KEY", ""),
-    )
+    """Create a Chroma client, preferring Cloud with automatic local fallback.
+
+    Cloud mode is used when CHROMA_API_KEY, CHROMA_TENANT, and CHROMA_DATABASE
+    are available and valid. If Cloud auth fails, we transparently fall back to a
+    local persistent ChromaDB to keep ingestion/query functional in containerized
+    runtimes (for example when secrets are missing or misconfigured).
+    """
+    force_local = _truthy(os.getenv("CHROMA_USE_LOCAL"))
+    api_key = os.getenv("CHROMA_API_KEY", "")
+    tenant = os.getenv("CHROMA_TENANT", "")
+    database = os.getenv("CHROMA_DATABASE", "")
+    cloud_host = os.getenv("CHROMA_HOST", "api.trychroma.com")
+
+    has_cloud_config = all([api_key, tenant, database]) and not force_local
+
+    if has_cloud_config:
+        try:
+            client = chromadb.CloudClient(
+                tenant=tenant,
+                database=database,
+                api_key=api_key,
+                cloud_host=cloud_host,
+            )
+            # Validate credentials once at startup/use so permission errors
+            # can gracefully switch to local storage.
+            client.list_collections()
+            return client
+        except Exception as e:
+            print(f"[DocMind] Chroma Cloud unavailable, using local fallback: {e}")
+
+    local_path = os.getenv("CHROMA_LOCAL_PATH", "/tmp/chroma")
+    Path(local_path).mkdir(parents=True, exist_ok=True)
+    return chromadb.PersistentClient(path=local_path)
 
 
 def load_document(file_path: str):
@@ -58,7 +93,7 @@ def split_documents(documents, chunk_size=500, chunk_overlap=50):
 
 
 def ingest_file(file_path: str) -> int:
-    """Full ingestion pipeline: load → split → embed → persist to ChromaDB Cloud.
+    """Full ingestion pipeline: load → split → embed → persist to ChromaDB.
 
     Returns the number of chunks added to the vector store.
     """
@@ -112,7 +147,7 @@ def store_chat_history(question: str, answer: str, session_id: str) -> None:
 
 
 def retrieve_chat_history(query: str, session_id: str, k: int = 2) -> list[dict]:
-    """Retrieve the most relevant past Q&A pairs for this session from ChromaDB Cloud.
+    """Retrieve the most relevant past Q&A pairs for this session from ChromaDB.
     
     Filters by session_id so each agent workflow only sees its own history.
     Returns top-k most semantically relevant past exchanges.

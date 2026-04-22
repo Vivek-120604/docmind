@@ -1,4 +1,4 @@
-"""Retriever module — queries ChromaDB Cloud for the most relevant document chunks."""
+"""Retriever module — queries ChromaDB for the most relevant document chunks."""
 
 from langchain_community.vectorstores import Chroma
 from app.ingest import embedding_model, get_chroma_client, COLLECTION_NAME
