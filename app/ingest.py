@@ -24,14 +24,10 @@ embedding_model = HuggingFaceEmbeddings(
 
 def get_chroma_client():
     """Create a ChromaDB Cloud HttpClient using environment variables."""
-    return chromadb.HttpClient(
-        host=os.getenv("CHROMA_HOST", "api.trychroma.com"),
-        ssl=True,
-        headers={
-            "x-chroma-token": os.getenv("CHROMA_API_KEY", ""),
-        },
+    return chromadb.CloudClient(
         tenant=os.getenv("CHROMA_TENANT", ""),
         database=os.getenv("CHROMA_DATABASE", ""),
+        api_key=os.getenv("CHROMA_API_KEY", ""),
     )
 
 
