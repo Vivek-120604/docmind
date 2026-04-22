@@ -5,7 +5,6 @@ and question answering via the FastAPI backend."""
 import os
 import gradio as gr
 import httpx
-import json
 
 BASE_URL = os.getenv("DOCMIND_API_URL", "http://127.0.0.1:7860")
 
@@ -39,16 +38,33 @@ def ingest_document(file):
 
 def query(question, session_id):
     """Send question and session_id to FastAPI, return answer, sources, and session_id."""
-    response = httpx.post(
-        f"{BASE_URL}/query",
-        json={"question": question, "session_id": session_id},
-        timeout=30,
-    )
-    data = response.json()
+    if not question or not question.strip():
+        return "⚠️ Please enter a question.", "", session_id or "", session_id
+
+    payload = {"question": question.strip()}
+    if session_id:
+        payload["session_id"] = session_id
+
+    try:
+        response = httpx.post(
+            f"{BASE_URL}/query",
+            json=payload,
+            timeout=60,
+        )
+        data = response.json()
+    except httpx.ConnectError:
+        return "❌ Could not connect to the FastAPI server.", "", session_id or "", session_id
+    except Exception as e:
+        return f"❌ Error: {str(e)}", "", session_id or "", session_id
+
+    if response.status_code != 200:
+        detail = data.get("detail", "Unknown error") if isinstance(data, dict) else str(data)
+        return f"❌ Error: {detail}", "", session_id or "", session_id
+
     sources = "\n\n".join(
         [chunk.get("content", "") for chunk in data.get("source_chunks", [])]
     )
-    new_session_id = data.get("session_id", "")
+    new_session_id = data.get("session_id", session_id or "")
     return data.get("answer", ""), sources, new_session_id, new_session_id
 
 

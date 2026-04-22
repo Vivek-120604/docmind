@@ -40,7 +40,7 @@ class IngestResponse(BaseModel):
 class QueryRequest(BaseModel):
     """Request body for the /query endpoint."""
     question: str
-    session_id: str = None  # optional — generated automatically if not provided
+    session_id: str | None = None  # optional — generated automatically if not provided
 
 
 class QueryResponse(BaseModel):
