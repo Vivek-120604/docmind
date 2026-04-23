@@ -61,7 +61,7 @@ DocMind is a Retrieval-Augmented Generation system that ingests PDF and text doc
 
 ### Using uv (recommended)
 ```bash
-git clone https://github.com/yourusername/DocMind.git
+git clone https://github.com/Vivek-120604/DocMind.git
 cd DocMind
 uv sync
 # Edit .env — add your GROQ_API_KEY and ChromaDB credentials
@@ -70,7 +70,7 @@ uv run python main.py
 
 ### Using pip (fallback)
 ```bash
-git clone https://github.com/yourusername/DocMind.git
+git clone https://github.com/Vivek-120604/DocMind.git
 cd DocMind
 pip install -e .
 # Edit .env — add your GROQ_API_KEY and ChromaDB credentials

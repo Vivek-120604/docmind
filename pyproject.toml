@@ -4,12 +4,13 @@ version = "1.0.0"
 description = "Document Q&A agent with RAG (ChromaDB + Groq) and an MCP server for AI agent integration."
 readme = "README.md"
 requires-python = ">=3.11, <3.13"
-license = {text = "MIT"}
+license = { text = "MIT" }
 dependencies = [
     "langchain==0.3.7",
     "langchain-community==0.3.7",
     "langchain-groq==0.2.1",
-    "chromadb==0.5.18",
+    "chromadb>=0.6.0",
+    "langchain-huggingface>=0.1.0",
     "sentence-transformers==3.3.1",
     "fastapi==0.115.5",
     "uvicorn==0.32.1",
